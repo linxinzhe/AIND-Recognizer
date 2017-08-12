@@ -116,6 +116,34 @@ class SelectorDIC(ModelSelector):
 
         # TODO implement model selection based on DIC scores
 
+        max_score = float("-inf")
+        best_model = None
+
+        for n in range(self.min_n_components, self.max_n_components + 1):
+            try:
+                sum_anti_logL = 0
+                word_count = 0
+
+                model = self.base_model(n)
+                if model:
+                    logL = model.score(self.X, self.lengths)
+
+                    for word in self.hwords:
+                        if word != self.this_word:
+                            sum_anti_logL += model.score(*self.hwords[word])
+                            word_count += 1
+
+                    mean_anti_logL = sum_anti_logL / word_count
+
+                    DIC = logL - mean_anti_logL
+
+                    if DIC > max_score:
+                        max_score = DIC
+                        best_model = model
+            except:
+                pass
+        return best_model
+
 
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
