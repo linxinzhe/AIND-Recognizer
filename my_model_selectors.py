@@ -81,24 +81,26 @@ class SelectorBIC(ModelSelector):
         min_score = float("inf")
         best_model = None
         for n in range(self.min_n_components, self.max_n_components + 1):
-            model = self.base_model(n)
+            try:
+                model = self.base_model(n)
 
-            logL = model.score(self.X, self.lengths)
+                logL = model.score(self.X, self.lengths)
 
-            # number of params = initial probabilities + transition probabilities + emission probabilities
-            # initial = n-1
-            # transition = n*(n-1)
-            # emission = n*d+n*d  which d means features in each observation
-            p = -1 + n ** 2 + n * len(self.X[0]) * 2
+                # number of params = initial probabilities + transition probabilities + emission probabilities
+                # initial = n-1
+                # transition = n*(n-1)
+                # emission = n*d+n*d  which d means features in each observation
+                p = -1 + n ** 2 + n * len(self.X[0]) * 2
 
-            logN = math.log(len(self.X))
+                logN = math.log(len(self.X))
 
-            BIC = -2 * logL + p * logN
+                BIC = -2 * logL + p * logN
 
-            if BIC < min_score:
-                min_score = BIC
-                best_model = model
-
+                if BIC < min_score:
+                    min_score = BIC
+                    best_model = model
+            except:
+                pass
         return best_model
 
 
@@ -154,4 +156,33 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        raise NotImplementedError
+
+        max_score = float("-inf")
+        best_model = None
+
+        split_method = KFold(min(len(self.sequences), 3))  # api default = 3
+        for n in range(self.min_n_components, self.max_n_components + 1):
+            try:
+                model = self.base_model(n)
+
+                logLs = []
+                for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
+                    try:
+                        train_X, train_lengths = combine_sequences(cv_train_idx, self.sequences)
+                        test_X, test_lengths = combine_sequences(cv_test_idx, self.sequences)
+
+                        model.fit(train_X, train_lengths)
+                        logL = model.score(test_X, test_lengths)
+                        logLs.append(logL)
+
+                    except:
+                        pass
+                mean_score = np.mean(logLs)
+
+                if mean_score > max_score:
+                    max_score = mean_score
+                    best_model = model
+            except:
+                pass
+
+        return best_model
